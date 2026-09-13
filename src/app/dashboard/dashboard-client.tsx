@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
-import { getGroupMembers } from "@/app/actions/member";
+import { getGroupMembers, leaveGroup, kickMember } from "@/app/actions/member";
 import {
   deleteGroup,
   resetGroup,
@@ -317,6 +317,43 @@ export default function DashboardClient({
     }
   };
 
+  const handleLeaveGroup = async () => {
+    if (!currentGroup) return;
+    if (!confirm("정말 이 그룹에서 나가시겠습니까?\n모든 기록이 삭제되며 복구할 수 없습니다.")) return;
+    
+    setIsProcessing(true);
+    const result = await leaveGroup(currentGroup.id);
+    setIsProcessing(false);
+
+    if (result.error) {
+      alert(result.error);
+    } else {
+      window.location.reload();
+    }
+  };
+
+  const handleKickMember = async (targetUserId: string, targetNickname: string) => {
+    if (!currentGroup) return;
+    if (!confirm(`${targetNickname}님을 그룹에서 정말 강퇴하시겠습니까?\n해당 멤버의 모든 인증 기록이 삭제됩니다.`)) return;
+
+    setIsProcessing(true);
+    const result = await kickMember(currentGroup.id, targetUserId);
+    setIsProcessing(false);
+
+    if (result.error) {
+      alert(result.error);
+    } else {
+      // Reload members list
+      setIsLoadingMembers(true);
+      getGroupMembers(currentGroup.id).then((res) => {
+        if (res.data) {
+          setMembers(res.data as unknown as GroupMember[]);
+        }
+        setIsLoadingMembers(false);
+      });
+    }
+  };
+
   useEffect(() => {
     if (currentGroup) {
       setIsLoadingMembers(true);
@@ -472,6 +509,18 @@ export default function DashboardClient({
                         <Settings className="w-3.5 h-3.5" /> 그룹 관리 (방장 전용)
                       </button>
                     )}
+                    {currentGroup?.role !== "ADMIN" && (
+                      <button
+                        disabled={isProcessing}
+                        onClick={() => {
+                          setShowGroupMenu(false);
+                          handleLeaveGroup();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
+                      >
+                        <LogOut className="w-3.5 h-3.5" /> 그룹 나가기
+                      </button>
+                    )}
                   </div>
                 </div>
               </>
@@ -603,8 +652,8 @@ export default function DashboardClient({
                     <div className="text-xs py-2" style={{ color: "var(--hf-text-muted)" }}>로딩 중...</div>
                   ) : (
                     members.map((member) => (
-                      <div key={member.id} className="flex flex-col items-center gap-1 min-w-[60px] snap-start">
-                        <div className="w-12 h-12 rounded-full overflow-hidden" style={{ background: "var(--hf-bg)", border: "2px solid var(--hf-border)" }}>
+                      <div key={member.id} className="flex flex-col items-center gap-1 min-w-[60px] snap-start relative group">
+                        <div className="w-12 h-12 rounded-full overflow-hidden relative" style={{ background: "var(--hf-bg)", border: "2px solid var(--hf-border)" }}>
                           {member.users?.profile_image ? (
                             <img src={member.users.profile_image} alt={member.users.nickname} className="w-full h-full object-cover" />
                           ) : (
@@ -613,6 +662,15 @@ export default function DashboardClient({
                             </div>
                           )}
                         </div>
+                        {currentGroup.role === "ADMIN" && member.role !== "ADMIN" && (
+                          <button
+                            onClick={() => handleKickMember(member.users?.id!, member.users?.nickname!)}
+                            className="absolute top-0 right-1 w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center shadow-sm text-white hover:bg-rose-600 transition-colors z-10"
+                            title="강퇴하기"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
                         <div className="text-center w-full">
                           <p className="text-[10px] font-medium truncate w-full" style={{ color: "var(--hf-text-primary)" }}>
                             {member.users?.nickname}
