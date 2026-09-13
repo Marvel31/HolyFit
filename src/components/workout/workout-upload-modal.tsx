@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Camera, X, Upload, CheckCircle2, Image as ImageIcon, RotateCcw, AlertCircle } from "lucide-react";
+import { Camera, X, Upload, CheckCircle2, RotateCcw, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { submitWorkoutRecord } from "@/app/actions/workout";
 
@@ -86,7 +86,6 @@ export default function WorkoutUploadModal({
   onSuccess,
 }: WorkoutUploadModalProps) {
   const router = useRouter();
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -108,7 +107,6 @@ export default function WorkoutUploadModal({
     setError(null);
     setIsCompressing(false);
     setIsUploading(false);
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
     if (galleryInputRef.current) galleryInputRef.current.value = "";
   };
 
@@ -220,18 +218,7 @@ export default function WorkoutUploadModal({
 
         {/* Content */}
         <div className="p-5 overflow-y-auto pb-8 space-y-5">
-          {/* Hidden File Inputs */}
-          {/* 1. Camera Input (forces native camera) */}
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            ref={cameraInputRef}
-            onChange={handleFileChange}
-            capture="environment"
-          />
-
-          {/* 2. Gallery Input (opens album/gallery picker safely without killing webview) */}
+          {/* Single file input WITHOUT capture — lets OS show camera+gallery picker safely */}
           <input
             type="file"
             accept="image/*"
@@ -270,40 +257,21 @@ export default function WorkoutUploadModal({
                 </div>
               </div>
             ) : (
-              /* Choice View: Camera vs Gallery */
+              /* Single Photo Picker Button */
               <div className="space-y-2.5">
-                <p className="text-xs font-semibold text-[var(--hf-text-muted)] mb-1">사진 등록 방식 선택</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Option 1: Direct Camera */}
-                  <button
-                    type="button"
-                    onClick={() => cameraInputRef.current?.click()}
-                    className="aspect-[4/3] rounded-2xl flex flex-col items-center justify-center gap-2.5 border-2 border-dashed border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10 active:scale-[0.98] transition-all"
-                  >
-                    <div className="w-12 h-12 rounded-2xl bg-purple-500 text-white flex items-center justify-center shadow-md">
-                      <Camera className="w-6 h-6" />
-                    </div>
-                    <div className="text-center">
-                      <span className="block font-bold text-xs text-[var(--hf-text-primary)]">카메라 촬영</span>
-                      <span className="block text-[10px] text-[var(--hf-text-muted)] mt-0.5">지금 바로 촬영</span>
-                    </div>
-                  </button>
-
-                  {/* Option 2: Gallery/Album */}
-                  <button
-                    type="button"
-                    onClick={() => galleryInputRef.current?.click()}
-                    className="aspect-[4/3] rounded-2xl flex flex-col items-center justify-center gap-2.5 border-2 border-dashed border-sky-500/30 bg-sky-500/5 hover:bg-sky-500/10 active:scale-[0.98] transition-all"
-                  >
-                    <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shadow-md">
-                      <ImageIcon className="w-6 h-6" />
-                    </div>
-                    <div className="text-center">
-                      <span className="block font-bold text-xs text-[var(--hf-text-primary)]">앨범에서 선택</span>
-                      <span className="block text-[10px] text-[var(--hf-text-muted)] mt-0.5">갤러리 사진 불러오기</span>
-                    </div>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="w-full aspect-[4/3] rounded-2xl flex flex-col items-center justify-center gap-3 border-2 border-dashed border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10 active:scale-[0.98] transition-all"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-purple-500 text-white flex items-center justify-center shadow-lg">
+                    <Camera className="w-7 h-7" />
+                  </div>
+                  <div className="text-center">
+                    <span className="block font-bold text-sm text-[var(--hf-text-primary)]">사진 촬영 또는 앨범 선택</span>
+                    <span className="block text-[11px] text-[var(--hf-text-muted)] mt-0.5">카메라 또는 갤러리에서 사진을 선택하세요</span>
+                  </div>
+                </button>
               </div>
             )}
           </div>

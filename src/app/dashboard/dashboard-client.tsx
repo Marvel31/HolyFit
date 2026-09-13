@@ -96,6 +96,7 @@ export default function DashboardClient({
   const [showExitToast, setShowExitToast] = useState(false);
   const lastBackPressRef = useRef<number>(0);
   const exitToastTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const historyTrapInitRef = useRef(false);
 
   // 최신 상태를 popstate 이벤트 리스너에서 참조하기 위한 Refs
   const manageConfirmActionRef = useRef(manageConfirmAction);
@@ -113,64 +114,74 @@ export default function DashboardClient({
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
 
-  useEffect(() => {
-    // 브라우저 뒤로 가기 이벤트를 가로채기 위해 초기 history state 푸시
-    window.history.pushState({ holyfitView: "app" }, "");
+  const showExitToastRef = useRef(showExitToast);
+  showExitToastRef.current = showExitToast;
 
-    const handlePopState = () => {
+  useEffect(() => {
+    // React Strict Mode에서 중복 호출 방지
+    if (historyTrapInitRef.current) return;
+    historyTrapInitRef.current = true;
+
+    // history 스택에 트랩 엔트리를 2개 추가하여 안정적으로 가로채기
+    const TRAP_KEY = "holyfitTrap";
+    window.history.replaceState({ [TRAP_KEY]: true }, "");
+    window.history.pushState({ [TRAP_KEY]: true }, "");
+
+    const handlePopState = (e: PopStateEvent) => {
+      // Next.js 내부 라우팅은 무시 (holyfitTrap 키가 없는 state)
+      if (e.state && !e.state[TRAP_KEY]) return;
+
+      // 항상 트랩을 다시 설정 (먼저 pushState해서 다음 back도 가로챔)
+      window.history.pushState({ [TRAP_KEY]: true }, "");
+
       // 1. 방장 2단계 확인 뷰가 열려있는 경우 -> 관리 선택 뷰로 복귀
       if (manageConfirmActionRef.current) {
         setManageConfirmAction(null);
-        window.history.pushState({ holyfitView: "app" }, "");
         return;
       }
 
       // 2. 방장 관리 모달이 열려있는 경우 -> 모달 닫기
       if (isManageModalOpenRef.current) {
         setIsManageModalOpen(false);
-        window.history.pushState({ holyfitView: "app" }, "");
         return;
       }
 
       // 3. 오운완 인증 업로드 모달이 열려있는 경우 -> 모달 닫기
       if (isUploadModalOpenRef.current) {
         setIsUploadModalOpen(false);
-        window.history.pushState({ holyfitView: "app" }, "");
         return;
       }
 
       // 4. 그룹 선택 드롭다운 메뉴가 열려있는 경우 -> 드롭다운 닫기
       if (showGroupMenuRef.current) {
         setShowGroupMenu(false);
-        window.history.pushState({ holyfitView: "app" }, "");
         return;
       }
 
       // 5. 하위 탭(정산 탭, 마이 탭)에 있는 경우 -> 홈 탭으로 복귀
       if (activeTabRef.current !== "home") {
         setActiveTab("home");
-        window.history.pushState({ holyfitView: "app" }, "");
         return;
       }
 
       // 6. 최상위 홈 화면인 경우 -> 2초 내 재클릭 시 종료
       const now = Date.now();
       if (now - lastBackPressRef.current < 2000) {
-        // 2초 내 두 번째 누름 -> 실제 종료
+        // 2초 내 두 번째 누름 -> 앱 종료 시도
         if (exitToastTimerRef.current) clearTimeout(exitToastTimerRef.current);
         setShowExitToast(false);
-        window.close();
-        window.history.back();
+
+        // 트랩 엔트리 2개를 모두 제거하고 원래 history로 돌아가기
+        // 이렇게 하면 인앱 브라우저/PWA가 자연스럽게 닫힘
+        window.history.go(-(window.history.length - 1));
       } else {
-        // 첫 번째 누름 -> 종료 안내 토스트 노출 & 리트랩
+        // 첫 번째 누름 -> 종료 안내 토스트 노출
         lastBackPressRef.current = now;
         setShowExitToast(true);
         if (exitToastTimerRef.current) clearTimeout(exitToastTimerRef.current);
         exitToastTimerRef.current = setTimeout(() => {
           setShowExitToast(false);
         }, 2000);
-
-        window.history.pushState({ holyfitView: "app" }, "");
       }
     };
 
