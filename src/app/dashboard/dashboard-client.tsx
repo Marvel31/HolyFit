@@ -118,15 +118,30 @@ export default function DashboardClient({
   showExitToastRef.current = showExitToast;
 
   useEffect(() => {
-    // 모바일 브라우저(Safari 등)에서 동일 URL pushState를 무시하는 현상 방지를 위해 hash(#) 사용
+    // 모바일(삼성 브라우저 등)에서 확실한 히스토리 엔트리를 생성하기 위해 해시(#app) 사용
     const setHistoryTrap = () => {
-      window.history.pushState(null, "", "#trap");
+      if (window.location.hash !== "#app") {
+        window.history.pushState(null, "", window.location.pathname + window.location.search + "#app");
+      }
     };
 
-    // 앱 진입 시 바로 트랩 설정
+    // 진입 시 바로 트랩 설정 시도 (허용되는 브라우저 용)
     setHistoryTrap();
 
+    // 삼성 인터넷 등 까다로운 브라우저는 사용자 상호작용이 있어야만 pushState를 허용하므로
+    // 첫 상호작용 시 트랩을 다시 한번 덮어씌움
+    const handleFirstInteraction = () => {
+      setHistoryTrap();
+      document.removeEventListener("click", handleFirstInteraction);
+      document.removeEventListener("touchstart", handleFirstInteraction);
+    };
+    document.addEventListener("click", handleFirstInteraction);
+    document.addEventListener("touchstart", handleFirstInteraction);
+
     const handlePopState = () => {
+      // 뒤로 가기가 눌려서 해시가 사라진 경우에만 로직 실행
+      if (window.location.hash === "#app") return;
+
       // 1. 방장 2단계 확인 뷰
       if (manageConfirmActionRef.current) {
         setManageConfirmAction(null);
@@ -168,7 +183,7 @@ export default function DashboardClient({
         // 2초 내 두 번 누름: 앱 종료
         if (exitToastTimerRef.current) clearTimeout(exitToastTimerRef.current);
         setShowExitToast(false);
-        // popstate로 인해 이미 #trap이 사라진 원래 URL로 돌아왔으므로, 여기서 back()을 하면 앱이 종료됨
+        // 이미 #app이 사라진 원래 URL로 돌아왔으므로, 한 번 더 back()을 호출하여 앱을 종료
         window.history.back();
       } else {
         // 첫 번째 누름: 종료 안내 토스트 노출 및 다시 트랩 설정
@@ -186,6 +201,8 @@ export default function DashboardClient({
     window.addEventListener("popstate", handlePopState);
     return () => {
       window.removeEventListener("popstate", handlePopState);
+      document.removeEventListener("click", handleFirstInteraction);
+      document.removeEventListener("touchstart", handleFirstInteraction);
       if (exitToastTimerRef.current) clearTimeout(exitToastTimerRef.current);
     };
   }, []);
