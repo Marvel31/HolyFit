@@ -92,6 +92,14 @@ export default function SettlementDashboard({
 
   useEffect(() => {
     loadCurrentStatus();
+    (window as any).reloadSettlementDashboard = () => {
+      loadCurrentStatus();
+      loadPastReport();
+      loadPointsSummary();
+    };
+    return () => {
+      delete (window as any).reloadSettlementDashboard;
+    };
   }, [groupId]);
 
   useEffect(() => {

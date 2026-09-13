@@ -314,3 +314,125 @@ export async function resetGroup(groupId: string) {
   return { success: true };
 }
 
+/**
+ * 벌금만 초기화 (방장 전용)
+ * 해당 그룹의 모든 주간 정산 레코드에서 벌금 금액(penalty_amount)을 0원으로 리셋합니다.
+ */
+export async function resetGroupPenalties(groupId: string) {
+  if (!groupId) return { error: "그룹 ID가 유효하지 않습니다." };
+
+  const check = await verifyGroupAdmin(groupId);
+  if (check.error || !check.adminClient) {
+    return { error: check.error || "권한이 없습니다." };
+  }
+
+  const { adminClient } = check;
+
+  const { error } = await adminClient
+    .from("weekly_settlements")
+    .update({
+      penalty_amount: 0,
+      is_penalty_paid: true,
+    })
+    .eq("group_id", groupId);
+
+  if (error) {
+    console.error("벌금 초기화 실패:", error);
+    return { error: "벌금 내역 초기화 중 오류가 발생했습니다." };
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+/**
+ * 포인트만 초기화 (방장 전용)
+ * 해당 그룹에서 획득된 멤버들의 보너스 포인트 및 이력을 0P로 리셋합니다.
+ */
+export async function resetGroupPoints(groupId: string) {
+  if (!groupId) return { error: "그룹 ID가 유효하지 않습니다." };
+
+  const check = await verifyGroupAdmin(groupId);
+  if (check.error || !check.adminClient) {
+    return { error: check.error || "권한이 없습니다." };
+  }
+
+  const { adminClient } = check;
+
+  // 1. 그룹에 속한 모든 멤버 목록 조회
+  const { data: members, error: membersError } = await adminClient
+    .from("group_members")
+    .select("user_id")
+    .eq("group_id", groupId);
+
+  if (membersError) {
+    console.error("멤버 조회 실패:", membersError);
+    return { error: "그룹 멤버 조회 중 오류가 발생했습니다." };
+  }
+
+  // 2. 각 멤버별로 해당 그룹에서 얻은 보너스 포인트를 계산하여 users.total_bonus_points에서 차감
+  for (const member of members || []) {
+    // point_histories에서 적립된 포인트 합산
+    const { data: pointEntries } = await adminClient
+      .from("point_histories")
+      .select("points_change")
+      .eq("group_id", groupId)
+      .eq("user_id", member.user_id);
+
+    const historyPoints = (pointEntries || []).reduce(
+      (sum, p) => sum + (p.points_change || 0),
+      0
+    );
+
+    // weekly_settlements에서 적립된 포인트 합산
+    const { data: settlements } = await adminClient
+      .from("weekly_settlements")
+      .select("bonus_points_earned")
+      .eq("group_id", groupId)
+      .eq("user_id", member.user_id);
+
+    const settlementBonus = (settlements || []).reduce(
+      (sum, s) => sum + (s.bonus_points_earned || 0),
+      0
+    );
+
+    const pointsToDeduct = Math.max(historyPoints, settlementBonus);
+
+    const { data: userData } = await adminClient
+      .from("users")
+      .select("total_bonus_points")
+      .eq("id", member.user_id)
+      .single();
+
+    if (userData && pointsToDeduct > 0) {
+      const currentPoints = userData.total_bonus_points || 0;
+      const newPoints = Math.max(0, currentPoints - pointsToDeduct);
+      await adminClient
+        .from("users")
+        .update({ total_bonus_points: newPoints })
+        .eq("id", member.user_id);
+    }
+  }
+
+  // 3. 해당 그룹의 point_histories 삭제
+  await adminClient
+    .from("point_histories")
+    .delete()
+    .eq("group_id", groupId);
+
+  // 4. weekly_settlements에서 bonus_points_earned 0으로 리셋
+  const { error: settlementErr } = await adminClient
+    .from("weekly_settlements")
+    .update({ bonus_points_earned: 0 })
+    .eq("group_id", groupId);
+
+  if (settlementErr) {
+    console.error("정산 포인트 초기화 실패:", settlementErr);
+    return { error: "정산 포인트 초기화 중 오류가 발생했습니다." };
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+

@@ -5,7 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
 import { getGroupMembers } from "@/app/actions/member";
-import { deleteGroup, resetGroup } from "@/app/actions/group";
+import {
+  deleteGroup,
+  resetGroup,
+  resetGroupPenalties,
+  resetGroupPoints,
+} from "@/app/actions/group";
 import GroupFeed from "@/components/workout/group-feed";
 import WorkoutUploadModal from "@/components/workout/workout-upload-modal";
 import WeeklyProgressCard from "@/components/home/weekly-progress-card";
@@ -82,7 +87,9 @@ export default function DashboardClient({
 
   // 방장 관리 모달 상태
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
-  const [manageConfirmAction, setManageConfirmAction] = useState<"delete" | "reset" | null>(null);
+  const [manageConfirmAction, setManageConfirmAction] = useState<
+    "delete" | "reset" | "reset_penalties" | "reset_points" | null
+  >(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const currentGroup = groups[selectedGroupIndex] as Group | undefined;
@@ -96,7 +103,9 @@ export default function DashboardClient({
       if (res?.error) {
         alert(`초기화 실패: ${res.error}`);
       } else {
-        alert(`'${currentGroup.name}' 그룹의 모든 운동 인증 및 정산 내역이 성공적으로 초기화되었습니다.`);
+        alert(
+          `'${currentGroup.name}' 그룹의 모든 운동 인증 및 정산 내역이 성공적으로 초기화되었습니다.`
+        );
         setManageConfirmAction(null);
         setIsManageModalOpen(false);
         if ((window as any).reloadGroupFeed) {
@@ -104,6 +113,65 @@ export default function DashboardClient({
         }
         if ((window as any).reloadWeeklyProgress) {
           (window as any).reloadWeeklyProgress();
+        }
+        if ((window as any).reloadSettlementDashboard) {
+          (window as any).reloadSettlementDashboard();
+        }
+        router.refresh();
+      }
+    } catch (err: any) {
+      alert(`오류가 발생했습니다: ${err.message || err}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleResetPenalties = async () => {
+    if (!currentGroup) return;
+    setIsProcessing(true);
+    try {
+      const res = await resetGroupPenalties(currentGroup.id);
+      if (res?.error) {
+        alert(`벌금 초기화 실패: ${res.error}`);
+      } else {
+        alert(
+          `'${currentGroup.name}' 그룹의 모든 주간 벌금 내역이 0원으로 초기화되었습니다.`
+        );
+        setManageConfirmAction(null);
+        setIsManageModalOpen(false);
+        if ((window as any).reloadWeeklyProgress) {
+          (window as any).reloadWeeklyProgress();
+        }
+        if ((window as any).reloadSettlementDashboard) {
+          (window as any).reloadSettlementDashboard();
+        }
+        router.refresh();
+      }
+    } catch (err: any) {
+      alert(`오류가 발생했습니다: ${err.message || err}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleResetPoints = async () => {
+    if (!currentGroup) return;
+    setIsProcessing(true);
+    try {
+      const res = await resetGroupPoints(currentGroup.id);
+      if (res?.error) {
+        alert(`포인트 초기화 실패: ${res.error}`);
+      } else {
+        alert(
+          `'${currentGroup.name}' 그룹의 모든 보너스 포인트 내역이 0P로 초기화되었습니다.`
+        );
+        setManageConfirmAction(null);
+        setIsManageModalOpen(false);
+        if ((window as any).reloadWeeklyProgress) {
+          (window as any).reloadWeeklyProgress();
+        }
+        if ((window as any).reloadSettlementDashboard) {
+          (window as any).reloadSettlementDashboard();
         }
         router.refresh();
       }
@@ -674,7 +742,7 @@ export default function DashboardClient({
       {isManageModalOpen && currentGroup && currentGroup.role === "ADMIN" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
           <div
-            className="card w-full max-w-sm p-6 space-y-5 animate-scale-up"
+            className="card w-full max-w-sm p-6 space-y-5 animate-scale-up max-h-[90vh] overflow-y-auto"
             style={{
               background: "var(--hf-bg-card)",
               border: "1px solid var(--hf-border)",
@@ -719,32 +787,50 @@ export default function DashboardClient({
                     background:
                       manageConfirmAction === "delete"
                         ? "rgba(239, 68, 68, 0.08)"
-                        : "rgba(245, 158, 11, 0.08)",
+                        : manageConfirmAction === "reset"
+                        ? "rgba(245, 158, 11, 0.08)"
+                        : manageConfirmAction === "reset_penalties"
+                        ? "rgba(16, 185, 129, 0.08)"
+                        : "rgba(99, 102, 241, 0.08)",
                     borderColor:
                       manageConfirmAction === "delete"
                         ? "rgba(239, 68, 68, 0.25)"
-                        : "rgba(245, 158, 11, 0.25)",
+                        : manageConfirmAction === "reset"
+                        ? "rgba(245, 158, 11, 0.25)"
+                        : manageConfirmAction === "reset_penalties"
+                        ? "rgba(16, 185, 129, 0.25)"
+                        : "rgba(99, 102, 241, 0.25)",
                   }}
                 >
                   <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center bg-white dark:bg-black/20 shadow-xs">
-                    <AlertTriangle
-                      className={`w-6 h-6 ${
-                        manageConfirmAction === "delete"
-                          ? "text-rose-500"
-                          : "text-amber-500"
-                      }`}
-                    />
+                    {manageConfirmAction === "delete" ? (
+                      <Trash2 className="w-6 h-6 text-rose-500" />
+                    ) : manageConfirmAction === "reset" ? (
+                      <AlertTriangle className="w-6 h-6 text-amber-500" />
+                    ) : manageConfirmAction === "reset_penalties" ? (
+                      <Coins className="w-6 h-6 text-emerald-500" />
+                    ) : (
+                      <Star className="w-6 h-6 text-indigo-500" />
+                    )}
                   </div>
                   <h4
                     className={`text-sm font-bold ${
                       manageConfirmAction === "delete"
                         ? "text-rose-600 dark:text-rose-400"
-                        : "text-amber-600 dark:text-amber-400"
+                        : manageConfirmAction === "reset"
+                        ? "text-amber-600 dark:text-amber-400"
+                        : manageConfirmAction === "reset_penalties"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-indigo-600 dark:text-indigo-400"
                     }`}
                   >
                     {manageConfirmAction === "delete"
                       ? "정말 그룹을 삭제하시겠습니까?"
-                      : "정말 그룹을 초기화하시겠습니까?"}
+                      : manageConfirmAction === "reset"
+                      ? "정말 그룹 전체를 초기화하시겠습니까?"
+                      : manageConfirmAction === "reset_penalties"
+                      ? "벌금 내역을 모두 0원으로 초기화할까요?"
+                      : "보너스 포인트를 모두 0P로 초기화할까요?"}
                   </h4>
                   <p className="text-xs text-[var(--hf-text-secondary)] leading-relaxed">
                     {manageConfirmAction === "delete" ? (
@@ -753,11 +839,23 @@ export default function DashboardClient({
                         <br />
                         모든 멤버십, 운동 인증 사진, 주간 정산 기록이 삭제되며 복구할 수 없습니다.
                       </>
-                    ) : (
+                    ) : manageConfirmAction === "reset" ? (
                       <>
                         <strong className="text-amber-500 font-semibold">{currentGroup.name}</strong> 그룹의 설정과 멤버는 유지되며,
                         <br />
                         이번 시즌의 <strong>운동 사진, 인증 피드, 정산 기록만 0건으로 리셋</strong>됩니다.
+                      </>
+                    ) : manageConfirmAction === "reset_penalties" ? (
+                      <>
+                        <strong className="text-emerald-500 font-semibold">{currentGroup.name}</strong> 그룹의 모든 주간 벌금 내역이 0원으로 초기화됩니다.
+                        <br />
+                        운동 인증 기록 및 멤버 포인트는 그대로 유지됩니다.
+                      </>
+                    ) : (
+                      <>
+                        <strong className="text-indigo-500 font-semibold">{currentGroup.name}</strong> 그룹에서 멤버들이 획득한 보너스 포인트가 0P로 리셋됩니다.
+                        <br />
+                        운동 인증 기록 및 벌금 내역은 그대로 유지됩니다.
                       </>
                     )}
                   </p>
@@ -776,12 +874,20 @@ export default function DashboardClient({
                     onClick={
                       manageConfirmAction === "delete"
                         ? handleDeleteGroup
-                        : handleResetGroup
+                        : manageConfirmAction === "reset"
+                        ? handleResetGroup
+                        : manageConfirmAction === "reset_penalties"
+                        ? handleResetPenalties
+                        : handleResetPoints
                     }
                     className={`flex-1 py-3 rounded-xl text-xs font-semibold text-white flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] disabled:opacity-50 shadow-md ${
                       manageConfirmAction === "delete"
                         ? "bg-rose-500 hover:bg-rose-600"
-                        : "bg-amber-500 hover:bg-amber-600"
+                        : manageConfirmAction === "reset"
+                        ? "bg-amber-500 hover:bg-amber-600"
+                        : manageConfirmAction === "reset_penalties"
+                        ? "bg-emerald-500 hover:bg-emerald-600"
+                        : "bg-indigo-500 hover:bg-indigo-600"
                     }`}
                   >
                     {isProcessing ? (
@@ -794,10 +900,20 @@ export default function DashboardClient({
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>영구 삭제</span>
                       </>
-                    ) : (
+                    ) : manageConfirmAction === "reset" ? (
                       <>
                         <RotateCcw className="w-3.5 h-3.5" />
-                        <span>초기화 실행</span>
+                        <span>전체 초기화</span>
+                      </>
+                    ) : manageConfirmAction === "reset_penalties" ? (
+                      <>
+                        <Coins className="w-3.5 h-3.5" />
+                        <span>벌금 초기화</span>
+                      </>
+                    ) : (
+                      <>
+                        <Star className="w-3.5 h-3.5" />
+                        <span>포인트 초기화</span>
                       </>
                     )}
                   </button>
@@ -806,7 +922,65 @@ export default function DashboardClient({
             ) : (
               /* Action Choices View */
               <div className="space-y-3">
-                {/* Action 1: Reset Group */}
+                {/* Action 1: Reset Penalties Only */}
+                <div
+                  className="p-4 rounded-2xl border transition-all hover:border-emerald-500/40"
+                  style={{
+                    background: "rgba(16, 185, 129, 0.05)",
+                    borderColor: "rgba(16, 185, 129, 0.2)",
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-500/15 text-emerald-600 shrink-0 mt-0.5">
+                      <Coins className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-bold text-[var(--hf-text-primary)]">
+                        벌금만 초기화
+                      </h4>
+                      <p className="text-xs text-[var(--hf-text-muted)] mt-1 leading-relaxed">
+                        운동 기록과 포인트는 유지하고, 그룹 내 모든 주간 벌금 내역만 0원으로 리셋합니다.
+                      </p>
+                      <button
+                        onClick={() => setManageConfirmAction("reset_penalties")}
+                        className="mt-3 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-xs"
+                      >
+                        벌금 초기화
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action 2: Reset Points Only */}
+                <div
+                  className="p-4 rounded-2xl border transition-all hover:border-indigo-500/40"
+                  style={{
+                    background: "rgba(99, 102, 241, 0.05)",
+                    borderColor: "rgba(99, 102, 241, 0.2)",
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-indigo-500/15 text-indigo-600 shrink-0 mt-0.5">
+                      <Star className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-bold text-[var(--hf-text-primary)]">
+                        포인트만 초기화
+                      </h4>
+                      <p className="text-xs text-[var(--hf-text-muted)] mt-1 leading-relaxed">
+                        운동 기록과 벌금은 유지하고, 그룹에서 획득한 보너스 포인트만 0P로 리셋합니다.
+                      </p>
+                      <button
+                        onClick={() => setManageConfirmAction("reset_points")}
+                        className="mt-3 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 transition-colors shadow-xs"
+                      >
+                        포인트 초기화
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action 3: Reset Group */}
                 <div
                   className="p-4 rounded-2xl border transition-all hover:border-amber-500/40"
                   style={{
@@ -820,7 +994,7 @@ export default function DashboardClient({
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-bold text-[var(--hf-text-primary)]">
-                        그룹 초기화
+                        그룹 전체 초기화
                       </h4>
                       <p className="text-xs text-[var(--hf-text-muted)] mt-1 leading-relaxed">
                         멤버 구성은 유지하고, 이번 시즌 운동 인증 기록과 주간 정산 내역을 0건으로 리셋합니다.
@@ -835,7 +1009,7 @@ export default function DashboardClient({
                   </div>
                 </div>
 
-                {/* Action 2: Delete Group */}
+                {/* Action 4: Delete Group */}
                 <div
                   className="p-4 rounded-2xl border transition-all hover:border-rose-500/40"
                   style={{
