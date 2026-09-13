@@ -2,16 +2,18 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { revalidatePath } from "next/cache";
 
 export async function submitWorkoutRecord(formData: FormData) {
   const groupId = formData.get("groupId") as string;
-  const imageUrl = formData.get("imageUrl") as string;
-  const storagePath = formData.get("storagePath") as string;
-  const workoutType = formData.get("workoutType") as string;
+  let imageUrl = (formData.get("imageUrl") as string) || "";
+  let storagePath = (formData.get("storagePath") as string) || "";
+  const workoutType = (formData.get("workoutType") as string) || "기타";
   const memo = (formData.get("memo") as string) || null;
+  const photo = formData.get("photo") as File | null;
 
-  if (!groupId || !imageUrl || !storagePath) {
-    return { error: "필수 정보가 누락되었습니다." };
+  if (!groupId) {
+    return { error: "그룹 정보가 누락되었습니다." };
   }
 
   const supabase = await createClient();
@@ -23,10 +25,25 @@ export async function submitWorkoutRecord(formData: FormData) {
 
   if (!user) return { error: "로그인이 필요합니다." };
 
-  // 1일 1회 인증 방어 로직 (UNIQUE 제약조건으로도 방어되지만, 여기서 한 번 더 체크)
+  const adminClient = createAdminClient();
+  if (!adminClient) return { error: "서버 설정 오류" };
+
+  // 그룹 멤버십 확인 (ADMIN 또는 MEMBER 모두 허용)
+  const { data: member, error: memberError } = await adminClient
+    .from("group_members")
+    .select("role")
+    .eq("group_id", groupId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (memberError || !member) {
+    return { error: "해당 그룹의 멤버만 인증할 수 있습니다." };
+  }
+
+  // 1일 1회 인증 방어 로직 (UNIQUE 제약조건 확인)
   const today = new Date().toISOString().split("T")[0];
 
-  const { data: existingRecord } = await supabase
+  const { data: existingRecord } = await adminClient
     .from("workout_records")
     .select("id")
     .eq("group_id", groupId)
@@ -38,7 +55,44 @@ export async function submitWorkoutRecord(formData: FormData) {
     return { error: "오늘은 이미 인증을 완료했습니다." };
   }
 
-  const { error: insertError } = await supabase.from("workout_records").insert({
+  // 사진 직접 서버 업로드 지원 (클라이언트 RLS 제약 극복)
+  if (photo && typeof photo === "object" && "arrayBuffer" in photo && photo.size > 0) {
+    try {
+      const fileExt = "jpg";
+      const fileName = `${groupId}/${user.id}_${Date.now()}.${fileExt}`;
+      const buffer = Buffer.from(await photo.arrayBuffer());
+
+      const { error: uploadError } = await adminClient.storage
+        .from("workout-photos")
+        .upload(fileName, buffer, {
+          contentType: "image/jpeg",
+          cacheControl: "3600",
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error("서버 스토리지 업로드 실패:", uploadError);
+        return { error: `사진 업로드 실패: ${uploadError.message}` };
+      }
+
+      const { data: publicUrlData } = adminClient.storage
+        .from("workout-photos")
+        .getPublicUrl(fileName);
+
+      imageUrl = publicUrlData.publicUrl;
+      storagePath = fileName;
+    } catch (err: any) {
+      console.error("사진 처리 중 오류:", err);
+      return { error: "사진 저장 중 오류가 발생했습니다." };
+    }
+  }
+
+  if (!imageUrl || !storagePath) {
+    return { error: "사진 파일 또는 이미지 경로가 필요합니다." };
+  }
+
+  // adminClient로 안전하게 workout_records에 추가
+  const { error: insertError } = await adminClient.from("workout_records").insert({
     group_id: groupId,
     user_id: user.id,
     record_date: today,
@@ -50,13 +104,13 @@ export async function submitWorkoutRecord(formData: FormData) {
 
   if (insertError) {
     console.error("인증 기록 저장 실패:", insertError);
-    // 23505 = unique_violation
     if (insertError.code === "23505") {
       return { error: "오늘은 이미 인증을 완료했습니다." };
     }
     return { error: "인증 기록 저장 중 오류가 발생했습니다." };
   }
 
+  revalidatePath("/dashboard");
   return { success: true };
 }
 

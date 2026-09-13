@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
@@ -91,6 +91,95 @@ export default function DashboardClient({
     "delete" | "reset" | "reset_penalties" | "reset_points" | null
   >(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // 뒤로 가기(Back) 제어 및 2회 연속 클릭 종료 토스트 상태
+  const [showExitToast, setShowExitToast] = useState(false);
+  const lastBackPressRef = useRef<number>(0);
+  const exitToastTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 최신 상태를 popstate 이벤트 리스너에서 참조하기 위한 Refs
+  const manageConfirmActionRef = useRef(manageConfirmAction);
+  manageConfirmActionRef.current = manageConfirmAction;
+
+  const isManageModalOpenRef = useRef(isManageModalOpen);
+  isManageModalOpenRef.current = isManageModalOpen;
+
+  const isUploadModalOpenRef = useRef(isUploadModalOpen);
+  isUploadModalOpenRef.current = isUploadModalOpen;
+
+  const showGroupMenuRef = useRef(showGroupMenu);
+  showGroupMenuRef.current = showGroupMenu;
+
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+
+  useEffect(() => {
+    // 브라우저 뒤로 가기 이벤트를 가로채기 위해 초기 history state 푸시
+    window.history.pushState({ holyfitView: "app" }, "");
+
+    const handlePopState = () => {
+      // 1. 방장 2단계 확인 뷰가 열려있는 경우 -> 관리 선택 뷰로 복귀
+      if (manageConfirmActionRef.current) {
+        setManageConfirmAction(null);
+        window.history.pushState({ holyfitView: "app" }, "");
+        return;
+      }
+
+      // 2. 방장 관리 모달이 열려있는 경우 -> 모달 닫기
+      if (isManageModalOpenRef.current) {
+        setIsManageModalOpen(false);
+        window.history.pushState({ holyfitView: "app" }, "");
+        return;
+      }
+
+      // 3. 오운완 인증 업로드 모달이 열려있는 경우 -> 모달 닫기
+      if (isUploadModalOpenRef.current) {
+        setIsUploadModalOpen(false);
+        window.history.pushState({ holyfitView: "app" }, "");
+        return;
+      }
+
+      // 4. 그룹 선택 드롭다운 메뉴가 열려있는 경우 -> 드롭다운 닫기
+      if (showGroupMenuRef.current) {
+        setShowGroupMenu(false);
+        window.history.pushState({ holyfitView: "app" }, "");
+        return;
+      }
+
+      // 5. 하위 탭(정산 탭, 마이 탭)에 있는 경우 -> 홈 탭으로 복귀
+      if (activeTabRef.current !== "home") {
+        setActiveTab("home");
+        window.history.pushState({ holyfitView: "app" }, "");
+        return;
+      }
+
+      // 6. 최상위 홈 화면인 경우 -> 2초 내 재클릭 시 종료
+      const now = Date.now();
+      if (now - lastBackPressRef.current < 2000) {
+        // 2초 내 두 번째 누름 -> 실제 종료
+        if (exitToastTimerRef.current) clearTimeout(exitToastTimerRef.current);
+        setShowExitToast(false);
+        window.close();
+        window.history.back();
+      } else {
+        // 첫 번째 누름 -> 종료 안내 토스트 노출 & 리트랩
+        lastBackPressRef.current = now;
+        setShowExitToast(true);
+        if (exitToastTimerRef.current) clearTimeout(exitToastTimerRef.current);
+        exitToastTimerRef.current = setTimeout(() => {
+          setShowExitToast(false);
+        }, 2000);
+
+        window.history.pushState({ holyfitView: "app" }, "");
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      if (exitToastTimerRef.current) clearTimeout(exitToastTimerRef.current);
+    };
+  }, []);
 
   const currentGroup = groups[selectedGroupIndex] as Group | undefined;
   const hasGroups = groups.length > 0;
@@ -1039,6 +1128,15 @@ export default function DashboardClient({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Double-back Exit Toast Notification */}
+      {showExitToast && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[200] animate-fade-in-up pointer-events-none w-max max-w-[90vw]">
+          <div className="px-5 py-3 rounded-full bg-black/90 dark:bg-white/95 text-white dark:text-black text-xs font-semibold backdrop-blur-md shadow-2xl flex items-center gap-2 border border-white/10 dark:border-black/10">
+            <span>'뒤로' 버튼을 한 번 더 누르면 종료됩니다</span>
           </div>
         </div>
       )}
