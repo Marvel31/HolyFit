@@ -19,7 +19,7 @@ const WORKOUT_TAGS = ["유산소", "웨이트", "러닝", "필라테스", "스�
  * 초경량으로 동작하는 순수 HTML5 Canvas 이미지 리사이징 헬퍼
  */
 async function compressImageSafely(file: File): Promise<File> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     try {
       const img = new Image();
       const objectUrl = URL.createObjectURL(file);
@@ -47,7 +47,7 @@ async function compressImageSafely(file: File): Promise<File> {
         canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-          resolve(file);
+          reject(new Error("캔버스를 생성할 수 없습니다. 기기 메모리가 부족할 수 있습니다."));
           return;
         }
 
@@ -55,7 +55,7 @@ async function compressImageSafely(file: File): Promise<File> {
         canvas.toBlob(
           (blob) => {
             if (!blob) {
-              resolve(file);
+              reject(new Error("이미지 압축에 실패했습니다."));
               return;
             }
             const cleanName = file.name.replace(/\.[^.]+$/, "") || "workout";
@@ -72,12 +72,12 @@ async function compressImageSafely(file: File): Promise<File> {
       
       img.onerror = () => {
         URL.revokeObjectURL(objectUrl);
-        resolve(file);
+        reject(new Error("이미지를 읽을 수 없습니다. (HEIC 포맷이거나 지원되지 않는 형식일 수 있습니다)"));
       };
       
       img.src = objectUrl;
-    } catch {
-      resolve(file);
+    } catch (e) {
+      reject(new Error("이미지 처리 중 알 수 없는 오류가 발생했습니다."));
     }
   });
 }
@@ -141,9 +141,12 @@ export default function WorkoutUploadModal({
       setPreviewUrl(url);
     } catch (err: any) {
       console.error("이미지 처리 실패:", err);
-      // 압축 실패 시 원본 사용
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      setError(err.message || "이미지 압축 중 오류가 발생했습니다.");
+      setSelectedFile(null);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
     } finally {
       setIsCompressing(false);
       // 인풋 값 리셋하여 동일 파일 재선택 가능하게 처리
