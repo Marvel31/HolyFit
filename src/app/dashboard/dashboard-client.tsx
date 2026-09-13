@@ -118,57 +118,63 @@ export default function DashboardClient({
   showExitToastRef.current = showExitToast;
 
   useEffect(() => {
-    // 앱 진입 시 히스토리를 하나 밀어넣어 뒤로가기 트랩을 생성
-    window.history.pushState(null, "", window.location.href);
+    // 모바일 브라우저(Safari 등)에서 동일 URL pushState를 무시하는 현상 방지를 위해 hash(#) 사용
+    const setHistoryTrap = () => {
+      window.history.pushState(null, "", "#trap");
+    };
+
+    // 앱 진입 시 바로 트랩 설정
+    setHistoryTrap();
 
     const handlePopState = () => {
       // 1. 방장 2단계 확인 뷰
       if (manageConfirmActionRef.current) {
         setManageConfirmAction(null);
-        window.history.pushState(null, "", window.location.href);
+        setHistoryTrap();
         return;
       }
 
       // 2. 방장 관리 모달
       if (isManageModalOpenRef.current) {
         setIsManageModalOpen(false);
-        window.history.pushState(null, "", window.location.href);
+        setHistoryTrap();
         return;
       }
 
       // 3. 업로드 모달
       if (isUploadModalOpenRef.current) {
         setIsUploadModalOpen(false);
-        window.history.pushState(null, "", window.location.href);
+        setHistoryTrap();
         return;
       }
 
       // 4. 그룹 선택 드롭다운
       if (showGroupMenuRef.current) {
         setShowGroupMenu(false);
-        window.history.pushState(null, "", window.location.href);
+        setHistoryTrap();
         return;
       }
 
       // 5. 하위 탭(정산 탭, 마이 탭)
       if (activeTabRef.current !== "home") {
         setActiveTab("home");
-        window.history.pushState(null, "", window.location.href);
+        setHistoryTrap();
         return;
       }
 
       // 6. 최상위 홈 화면
       const now = Date.now();
       if (now - lastBackPressRef.current < 2000) {
-        // 2초 내 두 번 누름: 앱 종료 (한 번 더 뒤로가기 실행하여 앱을 빠져나감)
+        // 2초 내 두 번 누름: 앱 종료
         if (exitToastTimerRef.current) clearTimeout(exitToastTimerRef.current);
         setShowExitToast(false);
+        // popstate로 인해 이미 #trap이 사라진 원래 URL로 돌아왔으므로, 여기서 back()을 하면 앱이 종료됨
         window.history.back();
       } else {
-        // 첫 번째 누름: 종료 안내 토스트 노출 및 트랩 재설정
+        // 첫 번째 누름: 종료 안내 토스트 노출 및 다시 트랩 설정
         lastBackPressRef.current = now;
         setShowExitToast(true);
-        window.history.pushState(null, "", window.location.href);
+        setHistoryTrap();
         
         if (exitToastTimerRef.current) clearTimeout(exitToastTimerRef.current);
         exitToastTimerRef.current = setTimeout(() => {
