@@ -202,3 +202,53 @@ export async function cleanupExpiredPhotosAction() {
 
   return { success: true, count: ids.length };
 }
+
+/**
+ * 자신이 올린 인증 기록 삭제 액션
+ */
+export async function deleteWorkoutRecord(recordId: string) {
+  const supabase = await createClient();
+  if (!supabase) return { error: "Supabase 설정 오류" };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "로그인이 필요합니다." };
+
+  const adminClient = createAdminClient();
+  if (!adminClient) return { error: "서버 설정 오류" };
+
+  // 1. 레코드 조회 (본인 것인지 확인)
+  const { data: record, error: fetchError } = await adminClient
+    .from("workout_records")
+    .select("id, user_id, storage_path")
+    .eq("id", recordId)
+    .single();
+
+  if (fetchError || !record) {
+    return { error: "해당 기록을 찾을 수 없습니다." };
+  }
+
+  if (record.user_id !== user.id) {
+    return { error: "본인이 올린 기록만 삭제할 수 있습니다." };
+  }
+
+  // 2. 사진이 스토리지에 남아있다면 삭제
+  if (record.storage_path) {
+    await adminClient.storage.from("workout-photos").remove([record.storage_path]);
+  }
+
+  // 3. 레코드 삭제
+  const { error: deleteError } = await adminClient
+    .from("workout_records")
+    .delete()
+    .eq("id", recordId);
+
+  if (deleteError) {
+    return { error: "기록 삭제 중 오류가 발생했습니다." };
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}

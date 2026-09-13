@@ -634,7 +634,7 @@ export default function DashboardClient({
                     <Camera className="w-5 h-5 text-[var(--hf-primary)]" /> 실시간 인증 피드
                   </h3>
                 </div>
-                <GroupFeed groupId={currentGroup.id} />
+                <GroupFeed groupId={currentGroup.id} currentUserId={profile.id} />
               </div>
               
               {/* Floating Action Button */}

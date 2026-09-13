@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getGroupFeed, cleanupExpiredPhotosAction } from "@/app/actions/workout";
+import { getGroupFeed, cleanupExpiredPhotosAction, deleteWorkoutRecord } from "@/app/actions/workout";
 import { formatDistanceToNow, format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Clock, ImageOff, User, ShieldCheck, Sparkles, AlertCircle } from "lucide-react";
+import { Clock, ImageOff, User, ShieldCheck, Sparkles, AlertCircle, Trash2 } from "lucide-react";
 
 interface FeedRecord {
   id: string;
@@ -22,9 +22,10 @@ interface FeedRecord {
   } | null;
 }
 
-export default function GroupFeed({ groupId }: { groupId: string }) {
+export default function GroupFeed({ groupId, currentUserId }: { groupId: string; currentUserId?: string }) {
   const [feed, setFeed] = useState<FeedRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
 
   const loadFeed = async () => {
     setIsLoading(true);
@@ -36,6 +37,20 @@ export default function GroupFeed({ groupId }: { groupId: string }) {
       setFeed(result.data as unknown as FeedRecord[]);
     }
     setIsLoading(false);
+  };
+
+  const handleDelete = async (recordId: string) => {
+    if (!confirm("이 인증 기록을 정말 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.")) return;
+    
+    setIsDeletingId(recordId);
+    const result = await deleteWorkoutRecord(recordId);
+    setIsDeletingId(null);
+    
+    if (result.error) {
+      alert(result.error);
+    } else {
+      loadFeed();
+    }
   };
 
   useEffect(() => {
@@ -111,14 +126,30 @@ export default function GroupFeed({ groupId }: { groupId: string }) {
                   </p>
                 </div>
               </div>
-              <div
-                className="badge"
-                style={{
-                  background: "rgba(108, 92, 231, 0.1)",
-                  color: "var(--hf-primary)",
-                }}
-              >
-                {record.workout_type}
+              <div className="flex items-center gap-2">
+                <div
+                  className="badge"
+                  style={{
+                    background: "rgba(108, 92, 231, 0.1)",
+                    color: "var(--hf-primary)",
+                  }}
+                >
+                  {record.workout_type}
+                </div>
+                {currentUserId && record.users?.id === currentUserId && (
+                  <button
+                    onClick={() => handleDelete(record.id)}
+                    disabled={isDeletingId === record.id}
+                    className="p-1.5 text-[var(--hf-text-muted)] hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
+                    title="기록 삭제"
+                  >
+                    {isDeletingId === record.id ? (
+                      <div className="w-4 h-4 rounded-full border-2 border-rose-500 border-t-transparent animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
