@@ -273,9 +273,11 @@ export default function WorkoutUploadModal({
                   <div className="w-14 h-14 rounded-2xl bg-purple-500 text-white flex items-center justify-center shadow-lg">
                     <Camera className="w-7 h-7" />
                   </div>
-                  <div className="text-center">
+                  <div className="text-center px-6">
                     <span className="block font-bold text-sm text-[var(--hf-text-primary)]">사진 촬영 또는 앨범 선택</span>
-                    <span className="block text-[11px] text-[var(--hf-text-muted)] mt-0.5">카메라 또는 갤러리에서 사진을 선택하세요</span>
+                    <span className="block text-[11px] text-rose-500/90 dark:text-rose-400/90 mt-1.5 leading-relaxed break-keep">
+                      ⚠️ 안드로이드에서 카메라 촬영 시 화면이 튕긴다면 (기기 램 부족 현상), <b>기본 카메라 앱으로 먼저 촬영한 후 앨범에서 선택</b>해주세요.
+                    </span>
                   </div>
                 </button>
               </div>
