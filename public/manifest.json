@@ -1,0 +1,26 @@
+{
+  "name": "HolyFit",
+  "short_name": "HolyFit",
+  "description": "그룹 운동 인증 & 벌금/포인트 관리 웹앱",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8F9FE",
+  "theme_color": "#6C5CE7",
+  "orientation": "portrait",
+  "scope": "/",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

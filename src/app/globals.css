@@ -1,0 +1,310 @@
+@import "tailwindcss";
+
+/* ===== HolyFit Design System ===== */
+
+:root {
+  /* Brand Colors */
+  --hf-primary: #6C5CE7;
+  --hf-primary-light: #A29BFE;
+  --hf-primary-dark: #5A4BD1;
+  --hf-accent: #00CEC9;
+  --hf-accent-light: #55EFC4;
+
+  /* Semantic Colors */
+  --hf-success: #00B894;
+  --hf-warning: #FDCB6E;
+  --hf-danger: #FF6B6B;
+  --hf-info: #74B9FF;
+
+  /* Neutral Palette */
+  --hf-bg: #F8F9FE;
+  --hf-bg-card: #FFFFFF;
+  --hf-bg-elevated: #FFFFFF;
+  --hf-text-primary: #2D3436;
+  --hf-text-secondary: #636E72;
+  --hf-text-muted: #B2BEC3;
+  --hf-border: #E8ECF4;
+  --hf-border-light: #F1F3F9;
+
+  /* Gradients */
+  --hf-gradient-primary: linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%);
+  --hf-gradient-accent: linear-gradient(135deg, #00CEC9 0%, #55EFC4 100%);
+  --hf-gradient-warm: linear-gradient(135deg, #FD79A8 0%, #FDCB6E 100%);
+  --hf-gradient-hero: linear-gradient(180deg, #6C5CE7 0%, #A29BFE 50%, #F8F9FE 100%);
+
+  /* Shadows */
+  --hf-shadow-sm: 0 1px 3px rgba(108, 92, 231, 0.08);
+  --hf-shadow-md: 0 4px 12px rgba(108, 92, 231, 0.12);
+  --hf-shadow-lg: 0 8px 30px rgba(108, 92, 231, 0.16);
+  --hf-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --hf-shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --hf-shadow-glow: 0 0 20px rgba(108, 92, 231, 0.3);
+
+  /* Border Radius */
+  --hf-radius-sm: 8px;
+  --hf-radius-md: 12px;
+  --hf-radius-lg: 16px;
+  --hf-radius-xl: 20px;
+  --hf-radius-2xl: 24px;
+  --hf-radius-full: 9999px;
+
+  /* Spacing */
+  --hf-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --hf-safe-top: env(safe-area-inset-top, 0px);
+  --hf-tab-bar-height: 72px;
+
+  /* Typography */
+  --background: #F8F9FE;
+  --foreground: #2D3436;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --hf-bg: #0F0F1A;
+    --hf-bg-card: #1A1A2E;
+    --hf-bg-elevated: #252540;
+    --hf-text-primary: #F5F5FA;
+    --hf-text-secondary: #A0A0BC;
+    --hf-text-muted: #6C6C8A;
+    --hf-border: #2A2A45;
+    --hf-border-light: #1E1E35;
+    --hf-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --hf-shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.4);
+
+    --background: #0F0F1A;
+    --foreground: #F5F5FA;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-hf-primary: var(--hf-primary);
+  --color-hf-primary-light: var(--hf-primary-light);
+  --color-hf-primary-dark: var(--hf-primary-dark);
+  --color-hf-accent: var(--hf-accent);
+  --color-hf-accent-light: var(--hf-accent-light);
+  --color-hf-success: var(--hf-success);
+  --color-hf-warning: var(--hf-warning);
+  --color-hf-danger: var(--hf-danger);
+  --color-hf-info: var(--hf-info);
+  --color-hf-bg: var(--hf-bg);
+  --color-hf-bg-card: var(--hf-bg-card);
+  --color-hf-bg-elevated: var(--hf-bg-elevated);
+  --color-hf-text-primary: var(--hf-text-primary);
+  --color-hf-text-secondary: var(--hf-text-secondary);
+  --color-hf-text-muted: var(--hf-text-muted);
+  --color-hf-border: var(--hf-border);
+  --color-hf-border-light: var(--hf-border-light);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* ===== Base Styles ===== */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--hf-bg);
+  color: var(--hf-text-primary);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overscroll-behavior-y: contain;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== Mobile App Container ===== */
+.app-container {
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  position: relative;
+  background: var(--hf-bg);
+}
+
+@media (min-width: 640px) {
+  .app-container {
+    border-left: 1px solid var(--hf-border);
+    border-right: 1px solid var(--hf-border);
+    box-shadow: var(--hf-shadow-lg);
+  }
+}
+
+/* ===== Card Styles ===== */
+.card {
+  background: var(--hf-bg-card);
+  border-radius: var(--hf-radius-lg);
+  border: 1px solid var(--hf-border-light);
+  box-shadow: var(--hf-shadow-card);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--hf-shadow-md);
+}
+
+/* ===== Glass Effect ===== */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  .glass {
+    background: rgba(26, 26, 46, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* ===== Tab Bar ===== */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  height: var(--hf-tab-bar-height);
+  padding-bottom: var(--hf-safe-bottom);
+  z-index: 50;
+}
+
+/* ===== Animations ===== */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(108, 92, 231, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(108, 92, 231, 0.5);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ===== Progress Bar ===== */
+.progress-bar {
+  height: 8px;
+  border-radius: var(--hf-radius-full);
+  background: var(--hf-border);
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: var(--hf-radius-full);
+  background: var(--hf-gradient-primary);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== Floating Action Button ===== */
+.fab {
+  position: fixed;
+  bottom: calc(var(--hf-tab-bar-height) + 16px + var(--hf-safe-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fab:active {
+  transform: translateX(-50%) scale(0.95);
+}
+
+/* ===== Skeleton Loader ===== */
+.skeleton {
+  background: linear-gradient(90deg, var(--hf-border) 25%, var(--hf-border-light) 50%, var(--hf-border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--hf-radius-sm);
+}
+
+/* ===== Badge ===== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--hf-radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ===== Chip / Tag ===== */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--hf-radius-full);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--hf-border);
+  background: var(--hf-bg-card);
+  transition: all 0.2s ease;
+}
+
+.chip:hover {
+  border-color: var(--hf-primary-light);
+  background: rgba(108, 92, 231, 0.06);
+}
+
+.chip.active {
+  border-color: var(--hf-primary);
+  background: rgba(108, 92, 231, 0.1);
+  color: var(--hf-primary);
+}
