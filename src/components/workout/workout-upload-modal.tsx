@@ -12,7 +12,7 @@ interface WorkoutUploadModalProps {
   onSuccess: () => void;
 }
 
-const WORKOUT_TAGS = ["유산소", "웨이트", "러닝", "필라테스", "스트레칭", "기타"];
+const WORKOUT_TAGS = ["유산소", "웨이트", "러닝", "수영", "요가", "필라테스", "스트레칭", "기타"];
 
 /**
  * 모바일 및 저사양 기기에서도 OOM이나 WebWorker 충돌 없이
