@@ -143,6 +143,16 @@ export async function getGroupFeed(groupId: string) {
         id,
         nickname,
         profile_image
+      ),
+      feed_comments (
+        id,
+        content,
+        created_at,
+        users:user_id (
+          id,
+          nickname,
+          profile_image
+        )
       )
     `)
     .eq("group_id", groupId)
@@ -152,6 +162,17 @@ export async function getGroupFeed(groupId: string) {
   if (error) {
     console.error("피드 조회 실패:", error);
     return { error: "피드를 불러오는 중 오류가 발생했습니다." };
+  }
+
+  // feed_comments를 created_at 오름차순으로 정렬
+  if (records) {
+    records.forEach((record: any) => {
+      if (record.feed_comments) {
+        record.feed_comments.sort((a: any, b: any) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+      }
+    });
   }
 
   return { data: records };
@@ -250,5 +271,81 @@ export async function deleteWorkoutRecord(recordId: string) {
   }
 
   revalidatePath("/dashboard");
+  return { success: true };
+}
+
+/**
+ * 피드 댓글 작성 액션
+ */
+export async function addComment(recordId: string, content: string) {
+  if (!content || content.trim().length === 0) {
+    return { error: "댓글 내용을 입력해주세요." };
+  }
+
+  const supabase = await createClient();
+  if (!supabase) return { error: "Supabase 설정 오류" };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "로그인이 필요합니다." };
+
+  const adminClient = createAdminClient();
+  if (!adminClient) return { error: "서버 설정 오류" };
+
+  const { error } = await adminClient.from("feed_comments").insert({
+    record_id: recordId,
+    user_id: user.id,
+    content: content.trim(),
+  });
+
+  if (error) {
+    console.error("댓글 작성 실패:", error);
+    return { error: "댓글 작성 중 오류가 발생했습니다." };
+  }
+
+  return { success: true };
+}
+
+/**
+ * 피드 댓글 삭제 액션
+ */
+export async function deleteComment(commentId: string) {
+  const supabase = await createClient();
+  if (!supabase) return { error: "Supabase 설정 오류" };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "로그인이 필요합니다." };
+
+  const adminClient = createAdminClient();
+  if (!adminClient) return { error: "서버 설정 오류" };
+
+  // 1. 댓글 조회 (본인 것인지 확인)
+  const { data: comment, error: fetchError } = await adminClient
+    .from("feed_comments")
+    .select("user_id")
+    .eq("id", commentId)
+    .single();
+
+  if (fetchError || !comment) {
+    return { error: "해당 댓글을 찾을 수 없습니다." };
+  }
+
+  if (comment.user_id !== user.id) {
+    return { error: "본인이 작성한 댓글만 삭제할 수 있습니다." };
+  }
+
+  // 2. 삭제
+  const { error } = await adminClient.from("feed_comments").delete().eq("id", commentId);
+
+  if (error) {
+    console.error("댓글 삭제 실패:", error);
+    return { error: "댓글 삭제 중 오류가 발생했습니다." };
+  }
+
   return { success: true };
 }

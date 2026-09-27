@@ -1,10 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getGroupFeed, cleanupExpiredPhotosAction, deleteWorkoutRecord } from "@/app/actions/workout";
+import { getGroupFeed, cleanupExpiredPhotosAction, deleteWorkoutRecord, addComment, deleteComment } from "@/app/actions/workout";
 import { formatDistanceToNow, format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Clock, ImageOff, User, ShieldCheck, Sparkles, AlertCircle, Trash2 } from "lucide-react";
+import { Clock, ImageOff, User, ShieldCheck, Sparkles, AlertCircle, Trash2, MessageCircle, Send } from "lucide-react";
+
+interface FeedComment {
+  id: string;
+  content: string;
+  created_at: string;
+  users: {
+    id: string;
+    nickname: string;
+    profile_image: string | null;
+  } | null;
+}
 
 interface FeedRecord {
   id: string;
@@ -20,12 +31,16 @@ interface FeedRecord {
     nickname: string;
     profile_image: string | null;
   } | null;
+  feed_comments?: FeedComment[];
 }
 
 export default function GroupFeed({ groupId, currentUserId }: { groupId: string; currentUserId?: string }) {
   const [feed, setFeed] = useState<FeedRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+  
+  const [commentText, setCommentText] = useState<{ [key: string]: string }>({});
+  const [isSubmittingComment, setIsSubmittingComment] = useState<string | null>(null);
 
   const loadFeed = async () => {
     setIsLoading(true);
@@ -48,6 +63,32 @@ export default function GroupFeed({ groupId, currentUserId }: { groupId: string;
     
     if (result.error) {
       alert(result.error);
+    } else {
+      loadFeed();
+    }
+  };
+
+  const handleCommentSubmit = async (recordId: string) => {
+    const text = commentText[recordId]?.trim();
+    if (!text) return;
+    
+    setIsSubmittingComment(recordId);
+    const res = await addComment(recordId, text);
+    setIsSubmittingComment(null);
+
+    if (res.error) {
+      alert(res.error);
+    } else {
+      setCommentText(prev => ({ ...prev, [recordId]: "" }));
+      loadFeed();
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm("댓글을 삭제하시겠습니까?")) return;
+    const res = await deleteComment(commentId);
+    if (res.error) {
+      alert(res.error);
     } else {
       loadFeed();
     }
@@ -221,6 +262,55 @@ export default function GroupFeed({ groupId, currentUserId }: { groupId: string;
                 </p>
               </div>
             )}
+
+            {/* Comments */}
+            <div className="p-4 border-t border-[var(--hf-border-light)] bg-[var(--hf-bg)] space-y-3">
+              {record.feed_comments && record.feed_comments.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {record.feed_comments.map((comment) => (
+                    <div key={comment.id} className="flex justify-between items-start group/comment">
+                      <p className="text-xs text-[var(--hf-text-secondary)] leading-relaxed">
+                        <span className="font-semibold text-[var(--hf-text-primary)] mr-2">{comment.users?.nickname}</span>
+                        {comment.content}
+                      </p>
+                      {currentUserId === comment.users?.id && (
+                        <button
+                          onClick={() => handleDeleteComment(comment.id)}
+                          className="text-[var(--hf-text-muted)] hover:text-rose-500 transition-colors px-1 shrink-0"
+                          title="삭제"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Comment Input */}
+              <div className="flex items-center gap-2 relative">
+                <input
+                  type="text"
+                  placeholder="댓글 달기..."
+                  value={commentText[record.id] || ""}
+                  onChange={(e) => setCommentText(prev => ({ ...prev, [record.id]: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleCommentSubmit(record.id);
+                    }
+                  }}
+                  className="flex-1 bg-black/5 dark:bg-white/5 rounded-full px-4 py-2 text-xs text-[var(--hf-text-primary)] placeholder:text-[var(--hf-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--hf-primary)]"
+                />
+                <button
+                  disabled={isSubmittingComment === record.id || !commentText[record.id]?.trim()}
+                  onClick={() => handleCommentSubmit(record.id)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center bg-[var(--hf-primary)] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-opacity shrink-0"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           </div>
         );
       })}
