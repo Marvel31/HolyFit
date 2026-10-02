@@ -10,7 +10,8 @@ import {
   SettlementReportResult,
   PointHistoryItem,
 } from "@/app/actions/settlement";
-import { getPreviousWeekString } from "@/lib/date-utils";
+import { getGroupStatistics, GroupStatisticsResult } from "@/app/actions/statistics";
+import { getPreviousWeekString, getISOWeekString } from "@/lib/date-utils";
 import {
   BarChart3,
   Calendar,
@@ -25,6 +26,7 @@ import {
   ChevronRight,
   Sparkles,
   RefreshCw,
+  PieChart,
 } from "lucide-react";
 
 interface SettlementDashboardProps {
@@ -32,7 +34,7 @@ interface SettlementDashboardProps {
   groupName: string;
 }
 
-type TabType = "current" | "past" | "points";
+type TabType = "current" | "past" | "points" | "stats";
 
 export default function SettlementDashboard({
   groupId,
@@ -58,6 +60,24 @@ export default function SettlementDashboard({
     histories: PointHistoryItem[];
   } | null>(null);
   const [loadingPoints, setLoadingPoints] = useState(false);
+
+  // 통계
+  const [statsData, setStatsData] = useState<GroupStatisticsResult | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [periodType, setPeriodType] = useState<"all" | "monthly" | "weekly">("monthly");
+  const [filterValue, setFilterValue] = useState("");
+
+  // 필터 초기값 세팅
+  useEffect(() => {
+    if (periodType === "monthly" && !filterValue.includes("-") || filterValue.includes("W")) {
+      const now = new Date();
+      setFilterValue(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+    } else if (periodType === "weekly" && !filterValue.includes("W")) {
+      setFilterValue(getISOWeekString());
+    } else if (periodType === "all") {
+      setFilterValue("");
+    }
+  }, [periodType]);
 
   // 1. 이번 주 현황 불러오기
   const loadCurrentStatus = async () => {
@@ -102,6 +122,15 @@ export default function SettlementDashboard({
     };
   }, [groupId]);
 
+  const loadStats = async (pType = periodType, fVal = filterValue) => {
+    setLoadingStats(true);
+    const res = await getGroupStatistics(groupId, pType, fVal);
+    if (res.data) {
+      setStatsData(res.data);
+    }
+    setLoadingStats(false);
+  };
+
   useEffect(() => {
     if (activeTab === "current") {
       loadCurrentStatus();
@@ -109,8 +138,22 @@ export default function SettlementDashboard({
       loadPastReport();
     } else if (activeTab === "points") {
       loadPointsSummary();
+    } else if (activeTab === "stats") {
+      loadStats();
     }
   }, [activeTab, groupId]);
+
+  // 통계 필터 변경 시 즉시 로딩
+  useEffect(() => {
+    if (activeTab === "stats" && filterValue !== undefined) {
+      // periodType 변경 시 filterValue가 자동으로 맞춰진 뒤 호출되도록
+      // 약간의 지연 후 호출하거나, periodType에 맞는 filterValue인지 검사 후 호출
+      if (periodType === "monthly" && filterValue.includes("W")) return;
+      if (periodType === "weekly" && !filterValue.includes("W")) return;
+      
+      loadStats(periodType, filterValue);
+    }
+  }, [periodType, filterValue]);
 
   // 방장 벌금 수납 토글
   const handleTogglePayment = async (
@@ -145,7 +188,7 @@ export default function SettlementDashboard({
       >
         <button
           onClick={() => setActiveTab("current")}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-1.5 ${
             activeTab === "current" ? "shadow-sm" : ""
           }`}
           style={{
@@ -156,12 +199,12 @@ export default function SettlementDashboard({
             color: activeTab === "current" ? "#FFFFFF" : "var(--hf-text-secondary)",
           }}
         >
-          <BarChart3 className="w-3.5 h-3.5" /> 이번 주 현황
+          <BarChart3 className="w-3.5 h-3.5" /> 현황
         </button>
 
         <button
           onClick={() => setActiveTab("past")}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-1.5 ${
             activeTab === "past" ? "shadow-sm" : ""
           }`}
           style={{
@@ -172,12 +215,12 @@ export default function SettlementDashboard({
             color: activeTab === "past" ? "#FFFFFF" : "var(--hf-text-secondary)",
           }}
         >
-          <Calendar className="w-3.5 h-3.5" /> 지난 주 정산
+          <Calendar className="w-3.5 h-3.5" /> 정산
         </button>
 
         <button
           onClick={() => setActiveTab("points")}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-1.5 ${
             activeTab === "points" ? "shadow-sm" : ""
           }`}
           style={{
@@ -188,7 +231,23 @@ export default function SettlementDashboard({
             color: activeTab === "points" ? "#FFFFFF" : "var(--hf-text-secondary)",
           }}
         >
-          <Star className="w-3.5 h-3.5" /> 내 포인트
+          <Star className="w-3.5 h-3.5" /> 포인트
+        </button>
+
+        <button
+          onClick={() => setActiveTab("stats")}
+          className={`flex-1 py-2.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-1.5 ${
+            activeTab === "stats" ? "shadow-sm" : ""
+          }`}
+          style={{
+            background:
+              activeTab === "stats"
+                ? "var(--hf-gradient-primary)"
+                : "transparent",
+            color: activeTab === "stats" ? "#FFFFFF" : "var(--hf-text-secondary)",
+          }}
+        >
+          <PieChart className="w-3.5 h-3.5" /> 통계
         </button>
       </div>
 
@@ -585,6 +644,111 @@ export default function SettlementDashboard({
                 )}
               </div>
             </>
+          ) : null}
+        </div>
+      )}
+      {/* ===== Tab 4: 통계 ===== */}
+      {activeTab === "stats" && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-4 p-2 bg-[var(--hf-bg-card)] rounded-xl border border-[var(--hf-border)]">
+            <button
+              className={`flex-1 py-2 rounded-lg text-xs font-bold ${periodType === "all" ? "bg-[var(--hf-primary)] text-white" : "bg-transparent text-[var(--hf-text-secondary)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+              onClick={() => setPeriodType("all")}
+            >
+              전체 기간
+            </button>
+            <button
+              className={`flex-1 py-2 rounded-lg text-xs font-bold ${periodType === "monthly" ? "bg-[var(--hf-primary)] text-white" : "bg-transparent text-[var(--hf-text-secondary)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+              onClick={() => setPeriodType("monthly")}
+            >
+              월간
+            </button>
+            <button
+              className={`flex-1 py-2 rounded-lg text-xs font-bold ${periodType === "weekly" ? "bg-[var(--hf-primary)] text-white" : "bg-transparent text-[var(--hf-text-secondary)] hover:bg-black/5 dark:hover:bg-white/5"}`}
+              onClick={() => setPeriodType("weekly")}
+            >
+              주간
+            </button>
+          </div>
+
+          {loadingStats ? (
+            <div className="card p-8 text-center text-xs text-[var(--hf-text-muted)] animate-pulse">
+              통계를 계산하는 중입니다...
+            </div>
+          ) : statsData ? (
+            <div className="card p-4 space-y-4">
+              <h3 className="text-sm font-bold text-[var(--hf-text-primary)] flex items-center gap-1.5 pb-2 border-b border-[var(--hf-border-light)]">
+                <PieChart className="w-4 h-4 text-[var(--hf-primary)]" /> 
+                {periodType === "all" ? "전체 기간 누적 통계" : periodType === "monthly" ? "월간 통계" : "주간 통계"}
+              </h3>
+              
+              {statsData.members.length === 0 ? (
+                <div className="py-8 text-center text-xs text-[var(--hf-text-muted)]">
+                  해당 기간의 멤버 데이터가 없습니다.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {statsData.members.map((stat, idx) => (
+                    <div
+                      key={stat.userId}
+                      className="p-3 rounded-xl"
+                      style={{
+                        background: "var(--hf-bg)",
+                        border: "1px solid var(--hf-border-light)",
+                      }}
+                    >
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <span className="text-xs font-extrabold w-4 text-[var(--hf-text-muted)]">
+                          #{idx + 1}
+                        </span>
+                        <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200">
+                          {stat.profileImage ? (
+                            <img
+                              src={stat.profileImage}
+                              alt={stat.nickname}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center font-bold text-xs text-gray-500">
+                              {stat.nickname.slice(0, 1)}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-[var(--hf-text-primary)]">
+                            {stat.nickname}
+                          </p>
+                          <p className="text-[10px] text-[var(--hf-text-muted)]">
+                            총 {stat.totalWorkouts}회 인증
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="bg-red-50 dark:bg-red-900/10 p-2 rounded-lg text-center">
+                          <span className="block text-[9px] text-red-600 dark:text-red-400 font-medium mb-0.5">누적 벌금 (납부)</span>
+                          <span className="block text-xs font-bold text-red-700 dark:text-red-300">{stat.totalPenaltyPaid.toLocaleString()}원</span>
+                        </div>
+                        <div className="bg-amber-50 dark:bg-amber-900/10 p-2 rounded-lg text-center">
+                          <span className="block text-[9px] text-amber-600 dark:text-amber-400 font-medium mb-0.5">누적 보너스</span>
+                          <span className="block text-xs font-bold text-amber-700 dark:text-amber-300">{stat.totalBonusEarned.toLocaleString()}P</span>
+                        </div>
+                      </div>
+
+                      {Object.keys(stat.workoutCounts).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {Object.entries(stat.workoutCounts).map(([type, count]) => (
+                            <span key={type} className="px-2 py-0.5 bg-[var(--hf-bg-elevated)] border border-[var(--hf-border)] rounded-full text-[10px] text-[var(--hf-text-secondary)]">
+                              {type} <strong className="text-[var(--hf-text-primary)]">{count}</strong>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : null}
         </div>
       )}

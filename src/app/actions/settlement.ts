@@ -84,7 +84,7 @@ export async function getWeeklyCurrentStatus(
   const { startDateStr, endDateStr, yearWeek } = getCurrentWeekRange();
 
   // 4. 이번 주 그룹의 모든 운동 인증 기록 조회
-  const { data: records, error: recordsError } = await supabase
+  const { data: records, error: recordsError } = await adminClient
     .from("workout_records")
     .select("user_id, record_date")
     .eq("group_id", groupId)
@@ -243,7 +243,7 @@ export async function getWeeklySettlementReport(
   if (membersError || !groupMembers) return { error: "그룹 멤버 조회 실패" };
 
   // 3. 기존 주간 정산 결과 조회
-  const { data: existingSettlements, error: settlementError } = await supabase
+  const { data: existingSettlements, error: settlementError } = await adminClient
     .from("weekly_settlements")
     .select("*")
     .eq("group_id", groupId)
@@ -258,7 +258,7 @@ export async function getWeeklySettlementReport(
 
   if (unSettledMembers.length > 0) {
     // 해당 주차 운동 기록 조회
-    const { data: weekRecords } = await supabase
+    const { data: weekRecords } = await adminClient
       .from("workout_records")
       .select("user_id, record_date")
       .eq("group_id", groupId)
@@ -286,7 +286,7 @@ export async function getWeeklySettlementReport(
       }
 
       // weekly_settlements 삽입
-      const { data: newSettlement, error: insertError } = await supabase
+      const { data: newSettlement, error: insertError } = await adminClient
         .from("weekly_settlements")
         .insert({
           group_id: groupId,
@@ -304,7 +304,7 @@ export async function getWeeklySettlementReport(
       if (!insertError && newSettlement) {
         // 보너스 포인트가 있다면 point_histories 기록 및 users.total_bonus_points 갱신
         if (bonus > 0) {
-          await supabase.from("point_histories").insert({
+          await adminClient.from("point_histories").insert({
             user_id: member.user_id,
             group_id: groupId,
             points_change: bonus,
@@ -313,7 +313,7 @@ export async function getWeeklySettlementReport(
           });
 
           const currentTotal = u?.total_bonus_points || 0;
-          await supabase
+          await adminClient
             .from("users")
             .update({ total_bonus_points: currentTotal + bonus })
             .eq("id", member.user_id);
